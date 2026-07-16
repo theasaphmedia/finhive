@@ -26,9 +26,6 @@ const ICONS: Record<string, React.ReactNode> = {
   Clients: (
     <path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M17 8a2.5 2.5 0 1 0 0-5M15.5 20c.3-2.8 1.7-4.8 3.7-5.6" />
   ),
-  Savings: (
-    <path d="M12 3a9 9 0 1 0 9 9M12 3v9l6.5 3.7M12 3a9 9 0 0 1 9 9h-9Z" />
-  ),
   Approvals: (
     <path d="m5 13 4 4L19 7" />
   ),
@@ -94,7 +91,6 @@ export default function Sidebar({
   if (isFullAccess || canConfirmFlags) links.push({ href: "/dashboard/flagged", label: "Flagged" });
   links.push({ href: "/dashboard/reports", label: "Reports" });
   links.push({ href: "/dashboard/clients", label: "Clients" });
-  links.push({ href: "/dashboard/savings", label: "Savings" });
   if (canManageOrg) {
     links.push({ href: "/dashboard/approvals", label: "Approvals" });
     links.push({ href: "/dashboard/categories", label: "Categories" });

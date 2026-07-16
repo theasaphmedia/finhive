@@ -1,5 +1,4 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { currentCycleNumber, payoutPositionForCycle } from "@/lib/savingsCycles";
 
 // Fully public, no-login page -- this is the actual "transparency" half of
 // the product promise. Deliberately uses the service-role admin client
@@ -31,10 +30,6 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     .eq("id", link.organization_id)
     .single();
 
-  if (link.scope === "savings_group" && link.scope_ref_id) {
-    return <SavingsGroupShare admin={admin} groupId={link.scope_ref_id} orgName={organization?.name ?? "This organization"} currency={organization?.currency ?? ""} />;
-  }
-
   if (link.scope === "category_summary") {
     return (
       <CategorySummaryShare
@@ -47,85 +42,6 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   }
 
   return <SharedShell title="Nothing to show here yet.">This link's scope isn't set up.</SharedShell>;
-}
-
-async function SavingsGroupShare({
-  admin,
-  groupId,
-  orgName,
-  currency,
-}: {
-  admin: ReturnType<typeof createAdminClient>;
-  groupId: string;
-  orgName: string;
-  currency: string;
-}) {
-  const { data: group } = await admin
-    .from("savings_groups")
-    .select("name, contribution_amount, cycle_frequency, start_date")
-    .eq("id", groupId)
-    .maybeSingle();
-
-  if (!group) {
-    return <SharedShell title="This group no longer exists.">Ask the organization for a fresh link.</SharedShell>;
-  }
-
-  const { data: members } = await admin
-    .from("savings_members")
-    .select("id, name, payout_position")
-    .eq("group_id", groupId)
-    .order("payout_position");
-
-  const cycle = currentCycleNumber(group.start_date, group.cycle_frequency as "weekly" | "monthly");
-
-  const { data: contributions } = await admin
-    .from("contributions")
-    .select("member_id, amount_expected, amount_paid, status")
-    .eq("group_id", groupId)
-    .eq("cycle_number", cycle);
-
-  const turnPosition = payoutPositionForCycle(cycle, members?.length ?? 0);
-  const memberOnTurn = members?.find((m) => m.payout_position === turnPosition);
-  const paidCount = (contributions ?? []).filter((c) => c.status === "paid").length;
-
-  return (
-    <SharedShell title={`${group.name} -- ${orgName}`}>
-      <p className="text-sm text-zinc-500">
-        {currency} {Number(group.contribution_amount).toLocaleString()} &middot; {group.cycle_frequency} &middot;{" "}
-        cycle {cycle} &middot; {paidCount}/{members?.length ?? 0} paid so far
-      </p>
-
-      <div className="mt-5 flex flex-col divide-y divide-zinc-100 rounded-lg border border-zinc-200 bg-white">
-        {(members ?? []).map((m) => {
-          const c = contributions?.find((c) => c.member_id === m.id);
-          return (
-            <div key={m.id} className="flex items-center justify-between px-4 py-3 text-sm">
-              <span className="font-medium text-zinc-800">
-                {m.name}
-                {m.id === memberOnTurn?.id && (
-                  <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                    receives this cycle
-                  </span>
-                )}
-              </span>
-              <span
-                className={
-                  c?.status === "paid"
-                    ? "rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700"
-                    : "rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800"
-                }
-              >
-                {c?.status === "paid" ? "Paid" : "Outstanding"}
-              </span>
-            </div>
-          );
-        })}
-        {(members ?? []).length === 0 && (
-          <p className="px-4 py-6 text-center text-sm text-zinc-500">No members yet.</p>
-        )}
-      </div>
-    </SharedShell>
-  );
 }
 
 async function CategorySummaryShare({

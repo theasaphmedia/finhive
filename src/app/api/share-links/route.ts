@@ -33,7 +33,7 @@ export const POST = withErrorLogging("api:/api/share-links:POST", async (request
   const { supabase, profile } = auth;
 
   const { scope, scopeRefId } = await request.json();
-  if (scope !== "savings_group" && scope !== "category_summary") {
+  if (scope !== "category_summary") {
     return NextResponse.json({ error: "Invalid scope." }, { status: 400 });
   }
 
