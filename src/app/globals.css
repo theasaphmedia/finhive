@@ -1,0 +1,245 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  /* Platform default finance palette (CLAUDE.md Section 1.4) -- neutral, not tied to
+     any one organization's brand. Orgs override brand_primary_color / brand_accent_color. */
+  --brand-primary: #0f2a3d;
+  --brand-accent: #1e9e6b;
+}
+
+@layer components {
+  /* All three read the CSS custom properties set on the dashboard shell
+     (--org-primary / --org-accent), falling back to the platform defaults
+     so pages rendered outside the org context (marketing, auth) still look
+     right. This is what lets every organization see its own brand colors
+     without touching a single component. */
+  .input {
+    @apply rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none transition-colors duration-150;
+    border-color: color-mix(in srgb, var(--org-accent, var(--brand-accent)) 0%, #d4d4d8);
+    /* Explicit rather than inherited -- form values are primary content and
+       must stay dark regardless of the visitor's system color scheme. */
+    color: #18181b;
+    background-color: #ffffff;
+  }
+  .input:focus {
+    border-color: var(--org-accent, var(--brand-accent));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--org-accent, var(--brand-accent)) 18%, transparent);
+  }
+  .input:disabled {
+    /* Browsers wash out disabled fields to a near-invisible gray by default --
+       keep it visibly muted but still legible instead of failing contrast. */
+    -webkit-text-fill-color: #52525b;
+    color: #52525b;
+    background-color: #f4f4f5;
+    opacity: 1;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    @apply rounded-md px-4 py-2 text-sm font-medium text-white transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-60;
+    background-color: var(--org-primary, var(--brand-primary));
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--org-primary, var(--brand-primary)) 88%, black);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  .btn-secondary {
+    @apply rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-all duration-150 hover:bg-zinc-50 active:translate-y-0;
+  }
+  .btn-secondary:hover {
+    transform: translateY(-1px);
+  }
+  .badge-accent {
+    @apply rounded-full px-2 py-0.5 text-xs font-medium;
+    background-color: color-mix(in srgb, var(--org-accent, var(--brand-accent)) 12%, transparent);
+    color: var(--org-accent, var(--brand-accent));
+  }
+  /* Glassmorphic card: translucent + blurred so it reads as a layer floating
+     over the dashboard's tinted background (see body::before below), with a
+     soft hairline border and diffuse shadow instead of a flat solid panel. */
+  .card {
+    @apply rounded-xl border transition-all duration-200;
+    background-color: rgb(255 255 255 / 0.72);
+    border-color: rgb(255 255 255 / 0.6);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    box-shadow:
+      0 1px 2px rgb(15 23 42 / 0.04),
+      0 8px 24px -8px rgb(15 23 42 / 0.08);
+  }
+  .card:hover {
+    background-color: rgb(255 255 255 / 0.85);
+    box-shadow:
+      0 2px 4px rgb(15 23 42 / 0.05),
+      0 16px 32px -12px rgb(15 23 42 / 0.14);
+    transform: translateY(-1px);
+  }
+  /* Applied to a .card that contains many rows (Clients, Categories, People,
+     Transactions) so the *container* no longer lifts on hover -- only the
+     individual row under the cursor should move (see .row-hover below). */
+  .card-flat:hover {
+    background-color: rgb(255 255 255 / 0.72);
+    box-shadow:
+      0 1px 2px rgb(15 23 42 / 0.04),
+      0 8px 24px -8px rgb(15 23 42 / 0.08);
+    transform: none;
+  }
+  /* Per-row hover feedback: pair with .card-flat on the containing list so
+     only the one row the cursor is over lifts, never the whole list/card. */
+  .row-hover {
+    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease, background-color 0.15s ease;
+  }
+  .row-hover:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px -6px rgb(15 23 42 / 0.16);
+    background-color: color-mix(in srgb, var(--org-accent, var(--brand-accent)) 10%, white) !important;
+    position: relative;
+    z-index: 1;
+  }
+  .fade-in {
+    animation: fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  /* Legacy CSS-only stagger, kept for short static lists (nav, a handful of
+     cards). For real per-row data lists, use .line-in with an inline
+     animation-delay set per index in JS instead -- see line-in below --
+     since nth-child can't scale to lists of arbitrary length. */
+  .stagger > * {
+    animation: fade-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  .stagger > *:nth-child(1) { animation-delay: 0.02s; }
+  .stagger > *:nth-child(2) { animation-delay: 0.06s; }
+  .stagger > *:nth-child(3) { animation-delay: 0.1s; }
+  .stagger > *:nth-child(4) { animation-delay: 0.14s; }
+  .stagger > *:nth-child(5) { animation-delay: 0.18s; }
+  .stagger > *:nth-child(n+6) { animation-delay: 0.22s; }
+
+  /* Every individual line (a transaction, a flagged item, a client row) gets
+     its own entrance -- pair this class with an inline `animationDelay`
+     from lineDelay() (src/lib/lineDelay.ts), which spaces rows further
+     apart (90ms) than this animation is long (180ms). That gap is
+     deliberate: each line finishes settling before the next one starts
+     moving, so it reads as one line at a time, not the whole list shifting
+     together. */
+  .line-in {
+    animation: line-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  /* Decorative flourish: a thin gradient line that appears to emerge from
+     behind a card and drift outward. Purely ambient -- never carries
+     information, so it stays subtle (low opacity, thin stroke) and is fully
+     disabled under reduced-motion. */
+  .flow-curve {
+    stroke-dasharray: 5 14;
+    animation: flow-dash 14s linear infinite;
+  }
+  @keyframes flow-dash {
+    to {
+      stroke-dashoffset: -190;
+    }
+  }
+}
+
+@keyframes line-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in,
+  .stagger > *,
+  .line-in,
+  .btn-primary,
+  .btn-secondary,
+  .card,
+  .card-flat,
+  .row-hover {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Glass only makes sense over a background with something behind it to blur --
+   a faint wash of the org's own brand colors, set as CSS vars on the dashboard
+   shell, gives every organization's glass cards a subtly different tint. */
+.dashboard-shell {
+  background:
+    radial-gradient(1200px 600px at 0% -10%, color-mix(in srgb, var(--org-primary, #0F2A3D) 10%, transparent), transparent),
+    radial-gradient(1000px 500px at 100% 0%, color-mix(in srgb, var(--org-accent, #1E9E6B) 8%, transparent), transparent),
+    #f7f7f8;
+  min-height: 100vh;
+}
+
+@media print {
+  .card {
+    background-color: white !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+    border-color: #e4e4e7 !important;
+    transform: none !important;
+  }
+  .dashboard-shell {
+    background: white !important;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", monospace;
+}
+
+/* FinHive ships one committed light theme (glass cards, light dashboard
+   shell, CLAUDE.md's neutral finance palette) -- there is no dark variant
+   anywhere in the design. The Next.js starter template's dark-mode media
+   query used to flip --foreground to near-white whenever the *visitor's OS*
+   was in dark mode (very common default on Windows/macOS), while every
+   other surface (cards, dashboard-shell background) stayed hard-coded
+   light. The result: any text relying on inherited body color (rather than
+   an explicit Tailwind text-color class) silently turned near-invisible
+   pale-on-white for anyone browsing with a dark system theme -- the root
+   cause of contrast complaints that seemed to appear "randomly" across the
+   site. Removed entirely rather than patched, since this app was never
+   designed to render in dark mode at all. */
+
+html, body {
+  /* Belt-and-suspenders against the whole *class* of "page scrolls sideways
+     past the sidebar, revealing plain white where a background/element
+     should be" bug -- already chased two separate causes of this (an
+     oversized decorative SVG, then an unbroken bank-description token
+     forcing a table cell too wide). Rather than keep hunting down the next
+     individual element that manages to push the page wider than the
+     viewport, this makes it structurally impossible: nothing in this app
+     ever needs the whole document to scroll horizontally -- anywhere
+     something genuinely needs horizontal scrolling (the Transactions
+     table, a code block) already scrolls internally via its own
+     overflow-x, not by widening the page. */
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
